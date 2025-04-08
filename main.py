@@ -73,7 +73,7 @@ class CPUSchedulerApp:
         list_scrollbar.config(command=self.process_tree.yview)
 
         # Delete Button
-        self.delete_button = tk.Button(frame_left, text="Delete Selected Process",
+        self.delete_button = tk.Button(frame_left, text="Delete Selected Process", command=self.delete_selected_process,
                                        bg="#dc3545", fg="white", relief=tk.RAISED)
         self.delete_button.grid(row=2, column=0, sticky="w", pady=5, padx=100)
 
@@ -88,6 +88,9 @@ class CPUSchedulerApp:
                                         values=("FCFS", "SJF", "SRTF","Round Robin", "Priority(Non-Preemptive)","Priority(Preemptive)"))
         self.algo_dropdown.grid(row=0, column=1, padx=10, pady=5)
 
+        # Bind Algorithm Selection to Function
+        self.algo_var.trace_add("write", self.on_algorithm_change)
+
         # ---------------- Left Panel: Simulation Controls ----------------
         button_frame = tk.LabelFrame(frame_left, text="Controls", padx=10, pady=10)
         button_frame.grid(row=4, column=0, sticky="ew", pady=10, padx=(10, 27))
@@ -101,7 +104,7 @@ class CPUSchedulerApp:
                                     bg="#007bff", fg="white", relief=tk.RAISED)
         self.run_button.grid(row=1, column=0, columnspan=2, pady=10, sticky="ew", padx=100)
 
-        self.reset_button = tk.Button(button_frame, text="Reset",
+        self.reset_button = tk.Button(button_frame, text="Reset", command=self.reset_all,
                                       bg="#dc3545", fg="white", relief=tk.RAISED)
         self.reset_button.grid(row=2, column=0, columnspan=2, pady=6, sticky="ew", padx=100)
 
@@ -151,6 +154,22 @@ class CPUSchedulerApp:
 
     # ---------------- Event Handlers ----------------
 
+    def on_algorithm_change(self, *args):
+        """Enable/Disable Time Quantum and Priority Input based on Algorithm Selection"""
+
+        # Handle Time Quantum Entry for Round Robin
+        if self.algo_var.get() == "Round Robin":
+            self.time_quantum_entry.config(state=tk.NORMAL)
+        else:
+            self.time_quantum_entry.config(state=tk.DISABLED)
+
+        # Handle Priority Input for Priority Scheduling
+        if self.algo_var.get() in ["Priority(Non-Preemptive)", "Priority(Preemptive)"]:
+            self.priority_entry.config(state=tk.NORMAL)  # Enable Priority field
+        else:
+            self.priority_entry.config(state=tk.DISABLED)  # Disable Priority field
+
+
     def add_process(self):
         """Add a process to the process list and display it in the table"""
         pid = self.pid_entry.get()
@@ -196,7 +215,30 @@ class CPUSchedulerApp:
             if self.algo_var.get() in ["Priority(Non-Preemptive)", "Priority(Preemptive)"]:
                 self.priority_entry.delete(0, tk.END)
 
+    def delete_selected_process(self):
+            selected_item = self.process_tree.selection()
+            if not selected_item:
+                print("No process selected!")
+                return  
 
+            for item in selected_item:
+                values = self.process_tree.item(item, "values")
+                if values:
+                    pid = values[0]  
+                    try:
+                        self.process_manager.remove_process(int(pid))  
+                        self.process_tree.delete(item)  
+                        print(f"Deleted process {pid}")  
+                    except ValueError:
+                        print(f"Invalid PID {pid}, cannot delete")
+
+    def reset_all(self):
+        self.process_manager.processes.clear()
+        self.process_tree.delete(*self.process_tree.get_children())
+        self.schedule_tree.delete(*self.schedule_tree.get_children())
+        for widget in self.canvas_frame.winfo_children() + self.stats_frame.winfo_children():
+            widget.destroy()
+            
 if __name__ == "__main__":
     root = tk.Tk()
     app = CPUSchedulerApp(root)
