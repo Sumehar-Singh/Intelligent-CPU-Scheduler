@@ -1,6 +1,7 @@
 import tkinter as tk
 import pandas as pd
 from tkinter import ttk
+from process_manager import ProcessManager
 
 class CPUSchedulerApp:
     def __init__(self, root):
@@ -40,7 +41,7 @@ class CPUSchedulerApp:
         self.priority_entry = tk.Entry(input_frame, width=18, state=tk.DISABLED)  # Initially Disabled
         self.priority_entry.grid(row=3, column=1, pady=5, padx=6)
 
-        self.add_button = tk.Button(input_frame, text="Add Process",
+        self.add_button = tk.Button(input_frame, text="Add Process", command=self.add_process,
                                     bg="#28a745", fg="white", relief=tk.RAISED)
         self.add_button.grid(row=4, column=0, columnspan=2, pady=8, sticky="ew", padx=110)
 
@@ -113,13 +114,13 @@ class CPUSchedulerApp:
         # Create the Treeview (Scheduling Table)
         self.schedule_tree = ttk.Treeview(self.schedule_tree_frame, columns=(
             "PID", "Arrival", "Burst", "Priority", "Completion", "Turnaround", "Waiting", "Response"),
-            show="headings", height=6, yscrollcommand=self.tree_scroll_y.set)  # Adjust height
+            show="headings", height=6, yscrollcommand=self.tree_scroll_y.set)
 
         # Define column headings
         columns = ["PID", "Arrival", "Burst", "Priority", "Completion", "Turnaround", "Waiting", "Response"]
         for col in columns:
             self.schedule_tree.heading(col, text=col, anchor="center")
-            self.schedule_tree.column(col, width=137, anchor="center")  # Adjust width
+            self.schedule_tree.column(col, width=137, anchor="center")
 
         # Grid placement
         self.schedule_tree.grid(row=0, column=0, sticky="nsew")
@@ -143,6 +144,58 @@ class CPUSchedulerApp:
         frame_right.grid_rowconfigure(1, weight=1)
         frame_right.grid_rowconfigure(2, weight=1)
         frame_right.grid_columnconfigure(0, weight=1)
+
+
+        # Process Manager Instance
+        self.process_manager = ProcessManager(self.process_tree)
+
+    # ---------------- Event Handlers ----------------
+
+    def add_process(self):
+        """Add a process to the process list and display it in the table"""
+        pid = self.pid_entry.get()
+        arrival_time = self.arrival_entry.get()
+        burst_time = self.burst_entry.get()
+
+        # Get priority input if applicable
+        if self.algo_var.get() in ["Priority(Non-Preemptive)", "Priority(Preemptive)"]:
+            priority = self.priority_entry.get()
+        else:
+            priority = "-"  # Default value for non-priority algorithms
+
+        # Validate the input fields
+        if not pid or not arrival_time or not burst_time:
+            print("Please enter all required fields!")
+            return
+
+        try:
+            pid = int(pid)
+            arrival_time = int(arrival_time)
+            burst_time = int(burst_time)
+            if self.algo_var.get() in ["Priority(Non-Preemptive)", "Priority(Preemptive)"]:
+                priority = int(priority)
+                if priority < 0:  # Prevent negative priority
+                    print("Error: Priority cannot be negative!")
+                    return
+            else:
+                priority = "-"  # Keep as '-' if not Priority Scheduling
+        except ValueError:
+            print("Please enter valid integers!")
+            return
+
+        # Add process to ProcessManager (removing duplicate insertion)
+        success = self.process_manager.add_process(pid, arrival_time, burst_time, priority)
+
+        # No need to insert again into TreeView; it's handled in ProcessManager
+
+        # Clear input fields after adding a process
+        if success:
+            self.pid_entry.delete(0, tk.END)
+            self.arrival_entry.delete(0, tk.END)
+            self.burst_entry.delete(0, tk.END)
+            if self.algo_var.get() in ["Priority(Non-Preemptive)", "Priority(Preemptive)"]:
+                self.priority_entry.delete(0, tk.END)
+
 
 if __name__ == "__main__":
     root = tk.Tk()
