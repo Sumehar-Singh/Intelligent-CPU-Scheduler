@@ -169,6 +169,12 @@ class CPUSchedulerApp:
         else:
             self.priority_entry.config(state=tk.DISABLED)  # Disable Priority field
 
+    def get_time_quantum(self):
+        """Retrieve time quantum value safely from the input box"""
+        try:
+            return int(self.time_quantum_entry.get())
+        except ValueError:
+            return -1  # Return -1 if invalid input
 
     def add_process(self):
         """Add a process to the process list and display it in the table"""
