@@ -9,6 +9,7 @@ from round_robin import round_robin_scheduling
 from non_preemptive_priority import priority_scheduling
 from preemptive_priority import preemptive_priority_scheduling
 import copy
+from stats_chart import plot_stats_chart
 
 class CPUSchedulerApp:
     def __init__(self, root):
