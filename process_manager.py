@@ -17,3 +17,10 @@ class ProcessManager:
         # Insert into TreeView
         self.treeview.insert("", "end", values=(pid, arrival, burst, priority))
         return True
+    
+    def get_processes(self):
+        return self.processes
+
+    def remove_process(self, pid):
+        """Remove process from internal list."""
+        self.processes = [p for p in self.processes if p["PID"] != pid]
