@@ -1,0 +1,175 @@
+import tkinter as tk
+from tkinter import ttk, Canvas
+import time
+import copy
+import random
+from threading import Thread
+
+class SchedulerAnimationWindow:
+    def __init__(self, parent, processes, algorithm, time_quantum=None):
+        """Initialize the animation window with process data and selected algorithm"""
+        self.top = tk.Toplevel(parent)
+        self.top.title(f"CPU Scheduler Animation - {algorithm}")
+        self.top.geometry("900x600")
+        self.top.protocol("WM_DELETE_WINDOW", self.on_closing)
+        
+        # Store scheduling parameters
+        self.processes = copy.deepcopy(processes)  # Deep copy to prevent modifying original
+        self.algorithm = algorithm
+        self.time_quantum = time_quantum
+        
+        # Animation state variables
+        self.current_time = 0
+        self.animation_speed = 1.0  # seconds per time unit
+        self.is_running = False
+        self.animation_thread = None
+        self.update_counter = 0  # Counter for visual updates
+        
+        # Add context switch counter
+        self.context_switches = 0
+        self.last_process_id = None
+        
+        # Process tracking
+        self.incoming = []  # Processes not yet arrived
+        self.ready_queue = []  # Processes in ready queue
+        self.current_process = None  # Currently executing process
+        self.completed = []  # Completed processes
+        self.remaining_time = {}  # Track remaining burst time for each process
+        
+        # Initialize process colors with distinct colors for each process
+        self.process_colors = {}
+        
+        # Initialize the process lists - all processes start in incoming section
+        for proc in self.processes:
+            pid = proc["PID"]
+            self.incoming.append(proc)
+            self.remaining_time[pid] = proc["Burst"]
+            
+            # Assign a unique color to each process
+            # Generate distinct colors for each process
+            r = random.randint(100, 240)
+            g = random.randint(100, 240)
+            b = random.randint(100, 240)
+            self.process_colors[pid] = f'#{r:02x}{g:02x}{b:02x}'
+        
+        # Sort incoming processes by arrival time
+        self.incoming.sort(key=lambda p: p["Arrival"])
+        
+        # Create UI components
+        self._create_ui()
+        
+        # Initialize visualization without starting animation
+        self._update_visualization()
+
+    def _hsv_to_rgb(self, h, s, v):
+        """Convert HSV color values to RGB"""
+        if s == 0.0: 
+            return v, v, v
+        i = int(h * 6.0)
+        f = (h * 6.0) - i
+        p = v * (1.0 - s)
+        q = v * (1.0 - s * f)
+        t = v * (1.0 - s * (1.0 - f))
+        i %= 6
+        if i == 0: return v, t, p
+        if i == 1: return q, v, p
+        if i == 2: return p, v, t
+        if i == 3: return p, q, v
+        if i == 4: return t, p, v
+        if i == 5: return v, p, q
+
+    def _create_ui(self):
+        """Create all UI elements for the animation"""
+        # Main frame
+        main_frame = tk.Frame(self.top, padx=20, pady=20)
+        main_frame.pack(fill=tk.BOTH, expand=True)
+        
+        # Top info bar
+        info_frame = tk.Frame(main_frame, bg="#f8f9fa", padx=10, pady=10)
+        info_frame.pack(fill=tk.X, pady=(0, 15))
+        
+        # Time display
+        time_label = tk.Label(info_frame, text="Time:", font=("Arial", 12, "bold"))
+        time_label.pack(side=tk.LEFT, padx=(0, 5))
+        self.time_var = tk.StringVar(value="0")
+        time_display = tk.Label(info_frame, textvariable=self.time_var, 
+                              font=("Arial", 12, "bold"), width=5, relief=tk.SUNKEN, bg="white")
+        time_display.pack(side=tk.LEFT, padx=(0, 20))
+        
+        # Algorithm info
+        algo_text = f"Algorithm: {self.algorithm}"
+        if self.algorithm == "Round Robin":
+            algo_text += f" (Time Quantum: {self.time_quantum})"
+        tk.Label(info_frame, text=algo_text, font=("Arial", 12, "bold")).pack(side=tk.LEFT)
+        
+        # Process sections
+        self.sections_frame = tk.Frame(main_frame)
+        self.sections_frame.pack(fill=tk.BOTH, expand=True)
+        
+        # Create the four main sections
+        section_height = 120
+        
+        # Incoming processes section
+        incoming_frame = tk.LabelFrame(self.sections_frame, text="Incoming Processes", padx=10, pady=10)
+        incoming_frame.pack(fill=tk.X, pady=(0, 15))
+        self.incoming_canvas = Canvas(incoming_frame, height=section_height, bg="#f0f0f0")
+        self.incoming_canvas.pack(fill=tk.X)
+        
+        # Ready queue section
+        ready_frame = tk.LabelFrame(self.sections_frame, text="Ready Queue", padx=10, pady=10)
+        ready_frame.pack(fill=tk.X, pady=(0, 15))
+        self.ready_canvas = Canvas(ready_frame, height=section_height, bg="#e6f7ff")
+        self.ready_canvas.pack(fill=tk.X)
+        
+        # CPU section
+        cpu_frame = tk.LabelFrame(self.sections_frame, text="CPU Execution", padx=10, pady=10)
+        cpu_frame.pack(fill=tk.X, pady=(0, 15))
+        self.cpu_canvas = Canvas(cpu_frame, height=section_height, bg="#e6ffe6")
+        self.cpu_canvas.pack(fill=tk.X)
+        
+        # Completed section
+        completed_frame = tk.LabelFrame(self.sections_frame, text="Completed Processes", padx=10, pady=10)
+        completed_frame.pack(fill=tk.X)
+        self.completed_canvas = Canvas(completed_frame, height=section_height, bg="#f0f0f0")
+        self.completed_canvas.pack(fill=tk.X)
+        
+        # Controls panel
+        controls_frame = tk.Frame(main_frame, pady=15)
+        controls_frame.pack(fill=tk.X)
+        
+        # Speed slider
+        speed_label = tk.Label(controls_frame, text="Speed:")
+        speed_label.pack(side=tk.LEFT, padx=(0, 5))
+        
+        self.speed_scale = ttk.Scale(controls_frame, from_=0.2, to=2.0, 
+                                   value=1.0, orient=tk.HORIZONTAL, 
+                                   length=200, command=self._update_speed)
+        self.speed_scale.pack(side=tk.LEFT)
+        
+        # Context switch counter
+        context_label = tk.Label(controls_frame, text="Context Switches:", font=("Arial", 10, "bold"))
+        context_label.pack(side=tk.LEFT, padx=(20, 5))
+        
+        self.context_var = tk.StringVar(value="0")
+        context_display = tk.Label(controls_frame, textvariable=self.context_var, 
+                                 font=("Arial", 10, "bold"), width=4, relief=tk.SUNKEN, bg="white")
+        context_display.pack(side=tk.LEFT)
+        
+        # Start/Pause button (Initially "Start" since animation doesn't auto-start)
+        self.play_btn = tk.Button(controls_frame, text="Start", 
+                                command=self._toggle_playback,
+                                width=10, bg="#28a745", fg="white")
+        self.play_btn.pack(side=tk.RIGHT, padx=5)
+        
+        # Reset button
+        self.reset_btn = tk.Button(controls_frame, text="Reset", 
+                                 command=self.reset_animation,
+                                 width=10, bg="#dc3545", fg="white")
+        self.reset_btn.pack(side=tk.RIGHT, padx=5)
+        
+        # Status message
+        self.status_var = tk.StringVar(value="Click Start to begin animation")
+        status_label = tk.Label(main_frame, textvariable=self.status_var, 
+                              anchor=tk.W, justify=tk.LEFT, relief=tk.SUNKEN,
+                              padx=10, pady=5)
+        status_label.pack(fill=tk.X, pady=(15, 0))
