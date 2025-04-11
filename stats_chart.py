@@ -28,8 +28,4 @@ def plot_stats_chart(fcfs_df, frame):
         widget.destroy()
     canvas = FigureCanvasTkAgg(fig, master=frame)
     canvas.draw()
-<<<<<<< HEAD
     canvas.get_tk_widget().pack(fill="both", expand=True)
-=======
-    canvas.get_tk_widget().pack(fill="both", expand=True)
->>>>>>> c01ab53cce279c8daaef5d4e207a4c51b3989e3b
