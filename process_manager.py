@@ -17,7 +17,7 @@ class ProcessManager:
         # Insert into TreeView
         self.treeview.insert("", "end", values=(pid, arrival, burst, priority))
         return True
-    
+
     def get_processes(self):
         return self.processes
 
