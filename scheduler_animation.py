@@ -173,7 +173,7 @@ class SchedulerAnimationWindow:
                               anchor=tk.W, justify=tk.LEFT, relief=tk.SUNKEN,
                               padx=10, pady=5)
         status_label.pack(fill=tk.X, pady=(15, 0))
-    
+
     def _update_speed(self, value):
         """Update animation speed from slider"""
         self.animation_speed = 1.0 / float(value)
@@ -277,7 +277,7 @@ class SchedulerAnimationWindow:
             
             # 8. Sleep based on speed setting before next time unit
             time.sleep(self.animation_speed)
-
+    
     def _update_cpu_display(self):
         """Update just the CPU display to show decreasing remaining time"""
         if self.current_process:
