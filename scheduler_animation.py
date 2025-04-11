@@ -173,3 +173,291 @@ class SchedulerAnimationWindow:
                               anchor=tk.W, justify=tk.LEFT, relief=tk.SUNKEN,
                               padx=10, pady=5)
         status_label.pack(fill=tk.X, pady=(15, 0))
+    
+    def _update_speed(self, value):
+        """Update animation speed from slider"""
+        self.animation_speed = 1.0 / float(value)
+    
+    def _toggle_playback(self):
+        """Start, pause or resume animation"""
+        if self.is_running:
+            # If running, pause it
+            self.is_running = False
+            self.play_btn.config(text="Resume", bg="#28a745")
+        else:
+            # If not running, either start or resume
+            self.is_running = True
+            self.play_btn.config(text="Pause", bg="#f0ad4e")
+            
+            # If not already started, start now
+            if not self.animation_thread or not self.animation_thread.is_alive():
+                self.animation_thread = Thread(target=self._run_animation)
+                self.animation_thread.daemon = True
+                self.animation_thread.start()
+    
+    def start_animation(self):
+        """Start animation thread"""
+        if not self.is_running and (not self.animation_thread or not self.animation_thread.is_alive()):
+            self.is_running = True
+            self.play_btn.config(text="Pause", bg="#f0ad4e")
+            self.animation_thread = Thread(target=self._run_animation)
+            self.animation_thread.daemon = True
+            self.animation_thread.start()
+    
+    def _run_animation(self):
+        """Main animation loop"""
+        while True:
+            # Check if animation should still be running
+            if not self.is_running:
+                time.sleep(0.1)  # Small delay when paused
+                continue
+            
+            # 1. Check for newly arrived processes at the current time
+            newly_arrived = []
+            for proc in list(self.incoming):
+                if proc["Arrival"] <= self.current_time:
+                    self.incoming.remove(proc)
+                    self.ready_queue.append(proc)
+                    newly_arrived.append(proc)
+            
+            if newly_arrived:
+                pids = [f"P{p['PID']}" for p in newly_arrived]
+                self.status_var.set(f"Time {self.current_time}: {', '.join(pids)} arrived")
+                self._update_visualization()
+                time.sleep(self.animation_speed * 0.5)  # Brief pause to show arrival
+            
+            # 2. Check for process completion at this time point
+            completion_occurred = False
+            if self.current_process:
+                pid = self.current_process["PID"]
+                # Check if process is completing at this exact time
+                if self.remaining_time[pid] == 0:
+                    self.completed.append(self.current_process)
+                    self.status_var.set(f"Time {self.current_time}: P{pid} completed")
+                    self.current_process = None
+                    self.last_process_id = None  # Reset last process since CPU is now idle
+                    completion_occurred = True
+                    self._update_visualization()
+                    time.sleep(self.animation_speed * 0.5)  # Brief pause to show completion
+            
+            # 3. Update CPU state based on scheduling algorithm
+            cpu_updated = self._update_cpu_state()
+            if cpu_updated:
+                self._update_visualization()
+                time.sleep(self.animation_speed * 0.5)  # Brief pause to show CPU changes
+            
+            # 4. Check if all processes are completed
+            if len(self.completed) == len(self.processes):
+                self.status_var.set(f"All processes completed at time {self.current_time}")
+                self._update_visualization()
+                self.play_btn.config(text="Finished", state=tk.DISABLED)
+                self.is_running = False
+                break
+            
+            # 5. Decrement remaining time for the current process
+            if self.current_process:
+                pid = self.current_process["PID"]
+                self.remaining_time[pid] -= 1
+                
+                # Update visualization to show the remaining time decreasing in real-time
+                self._update_cpu_display()
+            
+            # 6. Increment time
+            self.current_time += 1
+            self.time_var.set(str(self.current_time))
+            
+            # 7. If CPU is idle and no events occurred, fast forward to next process arrival
+            if not self.current_process and not newly_arrived and not cpu_updated and not completion_occurred and self.incoming:
+                next_arrival = min(p["Arrival"] for p in self.incoming)
+                if next_arrival > self.current_time:
+                    self.status_var.set(f"CPU idle. Fast-forwarding to time {next_arrival}")
+                    self.current_time = next_arrival
+                    self.time_var.set(str(self.current_time))
+                    continue
+            
+            # 8. Sleep based on speed setting before next time unit
+            time.sleep(self.animation_speed)
+
+    def _update_cpu_display(self):
+        """Update just the CPU display to show decreasing remaining time"""
+        if self.current_process:
+            pid = self.current_process["PID"]
+            x = 30
+            y = 20
+            
+            # Clear just the remaining time area in CPU canvas
+            self.cpu_canvas.delete("remaining_time")
+            
+            # Update the remaining time text
+            self.cpu_canvas.create_text(x+50, y+45, 
+                                      text=f"Remaining: {self.remaining_time[pid]}",
+                                      font=("Arial", 10),
+                                      tags="remaining_time")
+            
+            # Force update
+            self.top.update_idletasks()
+    
+    def _update_cpu_state(self):
+        """Update the CPU state based on the selected algorithm"""
+        updated = False
+        previous_process_id = self.last_process_id
+        
+        if self.algorithm == "FCFS":
+            # First-Come-First-Served
+            if not self.current_process and self.ready_queue:
+                self.current_process = self.ready_queue.pop(0)
+                pid = self.current_process["PID"]
+                self.status_var.set(f"Time {self.current_time}: P{pid} started execution")
+                
+                # Check for context switch
+                if self.last_process_id is not None and self.last_process_id != pid:
+                    self.context_switches += 1
+                    self.context_var.set(str(self.context_switches))
+                
+                self.last_process_id = pid
+                updated = True
+        
+        elif self.algorithm == "SJF":
+            # Shortest Job First (Non-preemptive)
+            if not self.current_process and self.ready_queue:
+                # Sort by burst time
+                self.ready_queue.sort(key=lambda p: p["Burst"])
+                self.current_process = self.ready_queue.pop(0)
+                pid = self.current_process["PID"]
+                self.status_var.set(f"Time {self.current_time}: P{pid} started execution (SJF)")
+                
+                # Check for context switch
+                if self.last_process_id is not None and self.last_process_id != pid:
+                    self.context_switches += 1
+                    self.context_var.set(str(self.context_switches))
+                
+                self.last_process_id = pid
+                updated = True
+        
+        elif self.algorithm == "SRTF":
+            # Shortest Remaining Time First (Preemptive)
+            if self.ready_queue:
+                # Check if we need to preempt
+                if self.current_process:
+                    shortest_process = min(self.ready_queue, key=lambda p: self.remaining_time[p["PID"]])
+                    if self.remaining_time[shortest_process["PID"]] < self.remaining_time[self.current_process["PID"]]:
+                        # Preemption occurs
+                        self.ready_queue.append(self.current_process)
+                        self.ready_queue.remove(shortest_process)
+                        previous_pid = self.current_process["PID"]
+                        self.current_process = shortest_process
+                        pid = self.current_process["PID"]
+                        self.status_var.set(f"Time {self.current_time}: P{previous_pid} preempted by P{pid}")
+                        
+                        # Count context switch
+                        if previous_pid != pid:
+                            self.context_switches += 1
+                            self.context_var.set(str(self.context_switches))
+                        
+                        self.last_process_id = pid
+                        updated = True
+                else:
+                    # CPU is idle, find shortest remaining time
+                    shortest_process = min(self.ready_queue, key=lambda p: self.remaining_time[p["PID"]])
+                    self.ready_queue.remove(shortest_process)
+                    self.current_process = shortest_process
+                    pid = self.current_process["PID"]
+                    self.status_var.set(f"Time {self.current_time}: P{pid} started execution (SRTF)")
+                    
+                    # Check for context switch
+                    if self.last_process_id is not None and self.last_process_id != pid:
+                        self.context_switches += 1
+                        self.context_var.set(str(self.context_switches))
+                    
+                    self.last_process_id = pid
+                    updated = True
+        
+        elif self.algorithm == "Round Robin":
+            # Round Robin
+            time_slice = getattr(self, "rr_time_slice", 0)
+            
+            if self.current_process and time_slice >= self.time_quantum:
+                # Time quantum expired
+                pid = self.current_process["PID"]
+                if self.remaining_time[pid] > 0:
+                    self.ready_queue.append(self.current_process)
+                    self.status_var.set(f"Time {self.current_time}: P{pid} time quantum expired")
+                    self.current_process = None
+                    self.rr_time_slice = 0
+                    updated = True
+            
+            if not self.current_process and self.ready_queue:
+                # Start next process
+                self.current_process = self.ready_queue.pop(0)
+                pid = self.current_process["PID"]
+                self.rr_time_slice = 0
+                self.status_var.set(f"Time {self.current_time}: P{pid} started execution (RR)")
+                
+                # Check for context switch
+                if self.last_process_id is not None and self.last_process_id != pid:
+                    self.context_switches += 1
+                    self.context_var.set(str(self.context_switches))
+                
+                self.last_process_id = pid
+                updated = True
+            
+            if self.current_process:
+                # Increment time slice
+                self.rr_time_slice = getattr(self, "rr_time_slice", 0) + 1
+        
+        elif self.algorithm == "Priority(Non-Preemptive)":
+            # Priority (Non-preemptive)
+            if not self.current_process and self.ready_queue:
+                # Sort by priority (lower number is higher priority)
+                self.ready_queue.sort(key=lambda p: p["Priority"])
+                self.current_process = self.ready_queue.pop(0)
+                pid = self.current_process["PID"]
+                self.status_var.set(f"Time {self.current_time}: P{pid} started execution (Priority)")
+                
+                # Check for context switch
+                if self.last_process_id is not None and self.last_process_id != pid:
+                    self.context_switches += 1
+                    self.context_var.set(str(self.context_switches))
+                
+                self.last_process_id = pid
+                updated = True
+        
+        elif self.algorithm == "Priority(Preemptive)":
+            # Priority (Preemptive)
+            if self.ready_queue:
+                # Check if we need to preempt
+                if self.current_process:
+                    self.ready_queue.sort(key=lambda p: p["Priority"])
+                    highest_priority = self.ready_queue[0]
+                    if highest_priority["Priority"] < self.current_process["Priority"]:
+                        # Preemption occurs
+                        self.ready_queue.append(self.current_process)
+                        self.ready_queue.remove(highest_priority)
+                        previous_pid = self.current_process["PID"]
+                        self.current_process = highest_priority
+                        pid = self.current_process["PID"]
+                        self.status_var.set(f"Time {self.current_time}: P{previous_pid} preempted by higher priority P{pid}")
+                        
+                        # Count context switch
+                        if previous_pid != pid:
+                            self.context_switches += 1
+                            self.context_var.set(str(self.context_switches))
+                        
+                        self.last_process_id = pid
+                        updated = True
+                else:
+                    # CPU is idle, find highest priority
+                    self.ready_queue.sort(key=lambda p: p["Priority"])
+                    self.current_process = self.ready_queue.pop(0)
+                    pid = self.current_process["PID"]
+                    self.status_var.set(f"Time {self.current_time}: P{pid} started execution (Priority)")
+                    
+                    # Check for context switch
+                    if self.last_process_id is not None and self.last_process_id != pid:
+                        self.context_switches += 1
+                        self.context_var.set(str(self.context_switches))
+                    
+                    self.last_process_id = pid
+                    updated = True
+                    
+        return updated
