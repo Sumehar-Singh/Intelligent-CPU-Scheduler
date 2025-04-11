@@ -10,6 +10,7 @@ from non_preemptive_priority import priority_scheduling
 from preemptive_priority import preemptive_priority_scheduling
 import copy
 from stats_chart import plot_stats_chart
+from gantt_chart import plot_gantt_chart
 
 class CPUSchedulerApp:
     def __init__(self, root):
@@ -108,7 +109,7 @@ class CPUSchedulerApp:
         self.time_quantum_entry = tk.Entry(button_frame, state=tk.DISABLED)  # Initially Disabled
         self.time_quantum_entry.grid(row=0, column=1, padx=10, pady=5)
 
-        self.run_button = tk.Button(button_frame, text="Run Simulation",
+        self.run_button = tk.Button(button_frame, text="Run Simulation", command=self.run_simulation,
                                     bg="#007bff", fg="white", relief=tk.RAISED)
         self.run_button.grid(row=1, column=0, columnspan=2, pady=10, sticky="ew", padx=100)
 
