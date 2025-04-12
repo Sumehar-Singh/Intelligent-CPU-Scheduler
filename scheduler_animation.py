@@ -459,6 +459,7 @@ class SchedulerAnimationWindow:
                     
                     self.last_process_id = pid
                     updated = True
+                    
         return updated
     
     def _update_visualization(self):
@@ -556,3 +557,44 @@ class SchedulerAnimationWindow:
             
             # Move to next position
             x += x_spacing
+    
+    def reset_animation(self):
+        """Reset the animation to initial state"""
+        # Stop current animation
+        self.is_running = False
+        if self.animation_thread and self.animation_thread.is_alive():
+            self.animation_thread.join(timeout=0.1)
+        
+        # Reset state variables
+        self.current_time = 0
+        self.incoming = []
+        self.ready_queue = []
+        self.current_process = None
+        self.completed = []
+        
+        # Reset context switches
+        self.context_switches = 0
+        self.context_var.set("0")
+        self.last_process_id = None
+        
+        # Reset remaining times
+        for proc in self.processes:
+            pid = proc["PID"]
+            self.incoming.append(proc)
+            self.remaining_time[pid] = proc["Burst"]
+        
+        # Sort incoming processes by arrival time
+        self.incoming.sort(key=lambda p: p["Arrival"])
+        
+        # Update UI
+        self.time_var.set("0")
+        self.status_var.set("Animation reset. Click Start to begin.")
+        self.play_btn.config(text="Start", bg="#28a745", state=tk.NORMAL)
+        self._update_visualization()
+
+    def on_closing(self):
+        """Handle window closing"""
+        self.is_running = False
+        if self.animation_thread and self.animation_thread.is_alive():
+            self.animation_thread.join(timeout=0.1)
+        self.top.destroy()
