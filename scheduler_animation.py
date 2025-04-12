@@ -459,7 +459,6 @@ class SchedulerAnimationWindow:
                     
                     self.last_process_id = pid
                     updated = True
-                    
         return updated
     
     def _update_visualization(self):
