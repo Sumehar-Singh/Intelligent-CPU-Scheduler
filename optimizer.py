@@ -375,3 +375,4 @@ class AlgorithmOptimizerWindow:
         self.metric_frames[0].config(text=f"{best_algo_metrics['avg_waiting']:.2f}")
         self.metric_frames[1].config(text=f"{best_algo_metrics['avg_turnaround']:.2f}")
         self.metric_frames[2].config(text=f"{best_algo_metrics['avg_response']:.2f}")
+        self.status_var.set("Analysis complete")
