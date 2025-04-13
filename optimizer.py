@@ -239,3 +239,96 @@ class AlgorithmOptimizerWindow:
         else:
             self.status_var.set("No processes to analyze")
             messagebox.showinfo("No Data", "No processes to analyze. Please add processes first.")
+    
+    def analyze_algorithms(self):
+        """Run all algorithms and compare their performance"""
+        self.status_var.set("Analyzing algorithms...")
+        self.results = {}
+        
+        # Check if any process has Priority field as "-"
+        has_priority = all(p.get("Priority", "-") != "-" for p in self.processes)
+        
+        # Run algorithms
+        try:
+            # FCFS
+            self.status_var.set("Analyzing FCFS algorithm...")
+            fcfs_result = fcfs_scheduling(copy.deepcopy(self.processes))
+            fcfs_metrics = self.calculate_metrics(fcfs_result)
+            self.results["FCFS"] = fcfs_metrics
+            
+            # SJF
+            self.status_var.set("Analyzing SJF algorithm...")
+            sjf_result = sjf_scheduling(copy.deepcopy(self.processes))
+            sjf_metrics = self.calculate_metrics(sjf_result)
+            self.results["SJF"] = sjf_metrics
+            
+            # SRTF
+            self.status_var.set("Analyzing SRTF algorithm...")
+            srtf_result, _ = srtf_scheduling(copy.deepcopy(self.processes))
+            srtf_metrics = self.calculate_metrics(srtf_result)
+            self.results["SRTF"] = srtf_metrics
+            
+            # Try different time quantums for Round Robin (dynamic range)
+            best_rr_metrics = None
+            best_rr_tq = 1
+            best_rr_score = float('inf')
+            
+            max_burst = max(int(p.get("Burst", 1)) for p in self.processes)
+            # Try time quantums from 1 up to max burst time (capped at 20 to avoid excessive calculations)
+            tq_range = range(1, min(max_burst + 1, 21))
+            
+            for tq in tq_range:
+                self.status_var.set(f"Analyzing Round Robin (q={tq}) algorithm...")
+                rr_result, _ = round_robin_scheduling(copy.deepcopy(self.processes), tq)
+                metrics = self.calculate_metrics(rr_result)
+                
+                # Track the best RR configuration - using waiting time as the standard metric
+                if metrics["avg_waiting"] < best_rr_score:
+                    best_rr_metrics = metrics
+                    best_rr_tq = tq
+                    best_rr_score = metrics["avg_waiting"]
+            
+            # Add only the best RR configuration to results
+            if best_rr_metrics:
+                rr_algo_name = f"RR (TQ={best_rr_tq})"
+                self.results[rr_algo_name] = best_rr_metrics
+            
+            # Priority algorithms (only if all processes have priority values)
+            if has_priority:
+                # Priority (Non-Preemptive)
+                self.status_var.set("Analyzing Priority (Non-Preemptive) algorithm...")
+                pnp_result = priority_scheduling(copy.deepcopy(self.processes))
+                pnp_metrics = self.calculate_metrics(pnp_result)
+                self.results["Priority (NP)"] = pnp_metrics
+                
+                # Priority (Preemptive)
+                self.status_var.set("Analyzing Priority (Preemptive) algorithm...")
+                pp_result, _ = preemptive_priority_scheduling(copy.deepcopy(self.processes))
+                pp_metrics = self.calculate_metrics(pp_result)
+                self.results["Priority (P)"] = pp_metrics
+                
+        except Exception as e:
+            self.status_var.set(f"Error in algorithm analysis: {e}")
+            messagebox.showerror("Analysis Error", f"An error occurred during analysis: {e}")
+            return
+            
+        # Clear existing results in tree
+        for item in self.results_tree.get_children():
+            self.results_tree.delete(item)
+            
+        # Display results in table
+        for algo, metrics in self.results.items():
+            self.results_tree.insert(
+                "", "end", values=(
+                    algo,
+                    f"{metrics['avg_turnaround']:.2f}",
+                    f"{metrics['avg_waiting']:.2f}",
+                    f"{metrics['avg_response']:.2f}"
+                )
+            )
+        
+        # Update recommendation
+        self.update_recommendation()
+        # Update graph
+        self.update_graph()
+        self.status_var.set("Analysis complete")
