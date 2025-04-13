@@ -11,6 +11,8 @@ from preemptive_priority import preemptive_priority_scheduling
 import copy
 from stats_chart import plot_stats_chart
 from gantt_chart import plot_gantt_chart
+from scheduler_animation import SchedulerAnimationWindow
+from optimizer import AlgorithmOptimizerWindow
 
 class CPUSchedulerApp:
     def __init__(self, root):
@@ -117,6 +119,14 @@ class CPUSchedulerApp:
                                       bg="#dc3545", fg="white", relief=tk.RAISED)
         self.reset_button.grid(row=2, column=0, columnspan=2, pady=6, sticky="ew", padx=100)
 
+        self.demo_button = tk.Button(button_frame, text="Live Demonstration", command=self.open_animation,
+                               bg="#17a2b8", fg="white", relief=tk.RAISED)
+        self.demo_button.grid(row=3, column=0, columnspan=2, pady=6, sticky="ew", padx=100)
+
+        self.optimize_button = tk.Button(button_frame, text="Optimize Algorithm", command=self.open_optimizer,
+                           bg="#ff9800", fg="white", relief=tk.RAISED)
+        self.optimize_button.grid(row=4, column=0, columnspan=2, pady=6, sticky="ew", padx=100)
+
         # ---------------- Scheduling Table (TreeView) ----------------
         self.schedule_tree_frame = tk.Frame(frame_right)  # Create a frame for the Treeview and Scrollbar
 
@@ -162,6 +172,38 @@ class CPUSchedulerApp:
         self.process_manager = ProcessManager(self.process_tree)
 
     # ---------------- Event Handlers ----------------
+
+    def open_optimizer(self):
+        """Open the Algorithm Optimizer window"""
+        processes = copy.deepcopy(self.process_manager.get_processes())
+        
+        if not processes:
+            print("No processes to optimize! Please add processes first.")
+            return
+        
+        # Open optimizer window
+        AlgorithmOptimizerWindow(self.root, processes)
+
+    def open_animation(self):
+        """Open animation window to demonstrate scheduling"""
+        processes = copy.deepcopy(self.process_manager.get_processes())
+        
+        if not processes:
+            print("No processes to demonstrate!")
+            return
+        
+        selected_algorithm = self.algo_var.get()
+        
+        # For Round Robin, get the time quantum
+        time_quantum = None
+        if selected_algorithm == "Round Robin":
+            time_quantum = self.get_time_quantum()
+            if time_quantum <= 0:
+                print("Invalid time quantum! Must be greater than zero.")
+                return
+        
+        # Open animation window
+        SchedulerAnimationWindow(self.root, processes, selected_algorithm, time_quantum)
 
     def on_algorithm_change(self, *args):
         """Enable/Disable Time Quantum and Priority Input based on Algorithm Selection"""

@@ -461,3 +461,140 @@ class SchedulerAnimationWindow:
                     updated = True
                     
         return updated
+    
+    def _update_visualization(self):
+        """Update the visualization of all processes"""
+        # Clear all canvases
+        for canvas in [self.incoming_canvas, self.ready_canvas, self.cpu_canvas, self.completed_canvas]:
+            canvas.delete("all")
+        
+        # Draw incoming processes
+        self._draw_processes(self.incoming_canvas, self.incoming)
+        
+        # Draw ready queue processes
+        self._draw_processes(self.ready_canvas, self.ready_queue)
+        
+        # Draw CPU process
+        if self.current_process:
+            pid = self.current_process["PID"]
+            x = 30
+            y = 20
+            
+            # Draw process box
+            self.cpu_canvas.create_rectangle(x, y, x+100, y+80, 
+                                           fill=self.process_colors[pid], outline="black", width=2)
+            
+            # Draw process ID
+            self.cpu_canvas.create_text(x+50, y+25, text=f"P{pid}", 
+                                      font=("Arial", 14, "bold"))
+            
+            # Draw remaining time (with tag for updating)
+            self.cpu_canvas.create_text(x+50, y+45, text=f"Remaining: {self.remaining_time[pid]}",
+                                      font=("Arial", 10), tags="remaining_time")
+            
+            # Draw burst time
+            self.cpu_canvas.create_text(x+50, y+65, text=f"Burst: {self.current_process['Burst']}",
+                                      font=("Arial", 10))
+            
+            # Add CPU busy indicator
+            self.cpu_canvas.create_oval(x+130, y+30, x+150, y+50, 
+                                      fill="#FF5252")
+            self.cpu_canvas.create_text(x+210, y+40, 
+                                      text="CPU BUSY", 
+                                      font=("Arial", 10, "bold"), fill="#FF5252")
+            
+        else:
+            # CPU is idle
+            self.cpu_canvas.create_text(150, 60, text="CPU IDLE", 
+                                      font=("Arial", 18, "bold"), fill="gray")
+        
+        # Draw completed processes
+        self._draw_processes(self.completed_canvas, self.completed)
+        
+        # Force update
+        self.top.update_idletasks()
+    
+    def _draw_processes(self, canvas, process_list):
+        """Draw a list of processes on the given canvas"""
+        if not process_list:
+            canvas.create_text(150, 60, text="No Processes", 
+                             font=("Arial", 12), fill="gray")
+            return
+            
+        # Draw processes horizontally with spacing
+        x_spacing = 110
+        x = 10
+        y = 20
+        max_width = canvas.winfo_width() - x_spacing
+        
+        for process in process_list:
+            pid = process["PID"]
+            
+            # Check if we need to wrap to next row
+            if max_width > 0 and x > max_width:  # Ensure canvas has been drawn
+                x = 10
+                y += 85
+            
+            # Draw process box with its unique color
+            canvas.create_rectangle(x, y, x+100, y+80, fill=self.process_colors[pid], outline="black")
+            
+            # Draw process ID
+            canvas.create_text(x+50, y+20, text=f"P{pid}", font=("Arial", 14, "bold"))
+            
+            # Draw process info based on where it is
+            if canvas == self.incoming_canvas:
+                canvas.create_text(x+50, y+40, text=f"Arrival: {process['Arrival']}", font=("Arial", 10))
+                canvas.create_text(x+50, y+60, text=f"Burst: {process['Burst']}", font=("Arial", 10))
+            elif canvas == self.ready_canvas:
+                canvas.create_text(x+50, y+40, text=f"Remaining: {self.remaining_time[pid]}", font=("Arial", 10))
+                if "Priority" in process and process["Priority"] != "-":
+                    canvas.create_text(x+50, y+60, text=f"Priority: {process['Priority']}", font=("Arial", 10))
+                else:
+                    canvas.create_text(x+50, y+60, text=f"Burst: {process['Burst']}", font=("Arial", 10))
+            elif canvas == self.completed_canvas:
+                canvas.create_text(x+50, y+40, text="Completed", font=("Arial", 10, "bold"))
+                canvas.create_text(x+50, y+60, text=f"Burst: {process['Burst']}", font=("Arial", 10))
+            
+            # Move to next position
+            x += x_spacing
+    
+    def reset_animation(self):
+        """Reset the animation to initial state"""
+        # Stop current animation
+        self.is_running = False
+        if self.animation_thread and self.animation_thread.is_alive():
+            self.animation_thread.join(timeout=0.1)
+        
+        # Reset state variables
+        self.current_time = 0
+        self.incoming = []
+        self.ready_queue = []
+        self.current_process = None
+        self.completed = []
+        
+        # Reset context switches
+        self.context_switches = 0
+        self.context_var.set("0")
+        self.last_process_id = None
+        
+        # Reset remaining times
+        for proc in self.processes:
+            pid = proc["PID"]
+            self.incoming.append(proc)
+            self.remaining_time[pid] = proc["Burst"]
+        
+        # Sort incoming processes by arrival time
+        self.incoming.sort(key=lambda p: p["Arrival"])
+        
+        # Update UI
+        self.time_var.set("0")
+        self.status_var.set("Animation reset. Click Start to begin.")
+        self.play_btn.config(text="Start", bg="#28a745", state=tk.NORMAL)
+        self._update_visualization()
+
+    def on_closing(self):
+        """Handle window closing"""
+        self.is_running = False
+        if self.animation_thread and self.animation_thread.is_alive():
+            self.animation_thread.join(timeout=0.1)
+        self.top.destroy()
