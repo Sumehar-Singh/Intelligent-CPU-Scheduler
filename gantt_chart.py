@@ -110,4 +110,4 @@ def plot_gantt_chart(df, frame, is_preemptive=False):  # Flag for preemptive alg
         plt.close(fig)
     
     canvas.get_tk_widget().bind("<Destroy>", on_destroy)
-
+    
