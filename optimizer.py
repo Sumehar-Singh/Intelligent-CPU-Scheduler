@@ -332,3 +332,47 @@ class AlgorithmOptimizerWindow:
         # Update graph
         self.update_graph()
         self.status_var.set("Analysis complete")
+
+    def update_recommendation(self):
+        """Update the recommendation based on selected metric"""
+        if not self.results:
+            return
+        
+        # Get the selected metric to use for recommendation
+        selected_metric = self.selected_metric.get()
+        
+        # Find algorithm with the best individual metric
+        best_algo_name = min(self.results.items(), key=lambda x: x[1][selected_metric])[0]
+        
+        # Map the metric to a user-friendly name
+        metric_names = {
+            "avg_turnaround": "Average Turnaround Time",
+            "avg_waiting": "Average Waiting Time",
+            "avg_response": "Average Response Time"
+        }
+        metric_name = metric_names[selected_metric]
+        
+        best_algo_metrics = self.results[best_algo_name]
+        
+        # Update recommendation labels
+        self.recommendation_label.config(
+            text=f"Best Algorithm for {metric_name}: {best_algo_name}"
+        )
+        
+        # Update recommendation details
+        details_text = (
+            f"Based on {metric_name.lower()}, "
+            f"{best_algo_name} is recommended as the most efficient algorithm.\n\n"
+            f"This algorithm achieves the following metrics:\n"
+            f"• Average Waiting Time: {best_algo_metrics['avg_waiting']:.2f}\n"
+            f"• Average Turnaround Time: {best_algo_metrics['avg_turnaround']:.2f}\n"
+            f"• Average Response Time: {best_algo_metrics['avg_response']:.2f}\n\n"
+        )
+        
+        self.recommendation_details.config(text=details_text)
+        
+        # Update quick metrics
+        self.metric_frames[0].config(text=f"{best_algo_metrics['avg_waiting']:.2f}")
+        self.metric_frames[1].config(text=f"{best_algo_metrics['avg_turnaround']:.2f}")
+        self.metric_frames[2].config(text=f"{best_algo_metrics['avg_response']:.2f}")
+        self.status_var.set("Analysis complete")
