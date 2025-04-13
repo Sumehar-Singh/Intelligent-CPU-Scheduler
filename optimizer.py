@@ -376,3 +376,81 @@ class AlgorithmOptimizerWindow:
         self.metric_frames[1].config(text=f"{best_algo_metrics['avg_turnaround']:.2f}")
         self.metric_frames[2].config(text=f"{best_algo_metrics['avg_response']:.2f}")
         self.status_var.set("Analysis complete")
+
+    def show_algorithm_details(self, event):
+        """Show details about the selected algorithm when clicked"""
+        item = self.results_tree.identify('item', event.x, event.y)
+        if not item:
+            return
+            
+        algo = self.results_tree.item(item, "values")[0]
+        
+        # Enable text editing
+        self.explanation_text.config(state="normal")
+        self.explanation_text.delete("1.0", tk.END)
+        
+        # Algorithm explanations
+        explanations = {
+            "FCFS": (
+                "First-Come, First-Served (FCFS) is the simplest CPU scheduling algorithm. "
+                "In this algorithm, processes are executed in the order they arrive in the ready queue. "
+                "It is non-preemptive, meaning once a process begins execution, it runs until completion.\n\n"
+                "Advantages: Simple to implement, fair in terms of arrival order.\n"
+                "Disadvantages: Can lead to the 'convoy effect' where short processes wait for long ones."
+            ),
+            "SJF": (
+                "Shortest Job First (SJF) selects the process with the smallest burst time first. "
+                "It is non-preemptive, so once a process starts executing, it runs to completion.\n\n"
+                "Advantages: Provides minimum average waiting time among non-preemptive algorithms.\n"
+                "Disadvantages: May cause starvation for longer processes if short processes keep arriving."
+            ),
+            "SRTF": (
+                "Shortest Remaining Time First (SRTF) is the preemptive version of SJF. "
+                "The process with the smallest remaining time is always selected for execution. "
+                "If a new process arrives with a shorter burst time, the current process is preempted.\n\n"
+                "Advantages: Optimal average waiting time among all scheduling algorithms.\n"
+                "Disadvantages: High overhead due to frequent context switches, potential starvation issues."
+            ),
+            "Priority (NP)": (
+                "Non-preemptive Priority scheduling assigns priorities to processes and selects the highest priority process first. "
+                "Once a process starts execution, it runs to completion.\n\n"
+                "Advantages: Important processes get CPU time first.\n"
+                "Disadvantages: May lead to starvation of lower-priority processes, priority inversion problems."
+            ),
+            "Priority (P)": (
+                "Preemptive Priority scheduling also uses priorities but preempts the current process if a higher-priority process arrives. "
+                "The highest priority process always gets the CPU.\n\n"
+                "Advantages: Responsive to high-priority processes.\n"
+                "Disadvantages: More context switches, potential starvation of lower-priority processes."
+            ),
+            "RR (TQ=)": (
+                "This is Round Robin that has been selected as the most suitable configuration "
+                "for the given set of processes. The time quantum represents the maximum time "
+                "a process can execute before being preempted and moved to the end of the queue.\n\n"
+                "Advantages: Fair allocation of CPU, good response time for short processes.\n"
+                "Disadvantages: Performance depends on time quantum selection."
+            )
+        }
+        
+        # Handle Round Robin explanation separately due to time quantum
+        if "RR" in algo and "FCFS" not in algo:
+            time_quantum = algo.split("=")[1].strip(")")
+            explanation = (
+                f"Round Robin (RR) with time quantum q={time_quantum} allocates the CPU to each process for a fixed time slice (quantum). "
+                f"When the time quantum expires, the process is preempted and added to the end of the ready queue.\n\n"
+                f"Advantages: Fair allocation of CPU, good response time for short processes.\n"
+                f"Disadvantages: Performance depends on time quantum selection, higher average waiting time than SJF."
+            )
+        else:
+            explanation = explanations.get(algo, "No detailed information available for this algorithm.")
+        
+        # Add metrics to the explanation
+        if algo in self.results:
+            metrics = self.results[algo]
+            explanation += f"\n\nPerformance Metrics:\n"
+            explanation += f"• Average Waiting Time: {metrics['avg_waiting']:.2f}\n"
+            explanation += f"• Average Turnaround Time: {metrics['avg_turnaround']:.2f}\n"
+            explanation += f"• Average Response Time: {metrics['avg_response']:.2f}"
+        
+        self.explanation_text.insert("1.0", explanation)
+        self.explanation_text.config(state="disabled")
