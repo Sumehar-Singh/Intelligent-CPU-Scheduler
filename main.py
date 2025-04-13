@@ -1,18 +1,19 @@
 import tkinter as tk
 import pandas as pd
 from tkinter import ttk
-from process_manager import ProcessManager
 from fcfs import fcfs_scheduling
 from sjf import sjf_scheduling
 from srtf import srtf_scheduling
 from round_robin import round_robin_scheduling
 from non_preemptive_priority import priority_scheduling
 from preemptive_priority import preemptive_priority_scheduling
-import copy
-from stats_chart import plot_stats_chart
 from gantt_chart import plot_gantt_chart
+from process_manager import ProcessManager
+from stats_chart import plot_stats_chart  
+import copy
 from scheduler_animation import SchedulerAnimationWindow
 from optimizer import AlgorithmOptimizerWindow
+
 
 class CPUSchedulerApp:
     def __init__(self, root):
@@ -63,6 +64,7 @@ class CPUSchedulerApp:
         list_scrollbar = tk.Scrollbar(list_frame, orient="vertical")
         list_scrollbar.grid(row=0, column=1, sticky="ns")
 
+        # Add Priority Column
         self.process_tree = ttk.Treeview(
             list_frame, columns=("PID", "Arrival", "Burst", "Priority"),
             show="headings", height=10, yscrollcommand=list_scrollbar.set
@@ -78,10 +80,11 @@ class CPUSchedulerApp:
         self.process_tree.column("PID", width=80, anchor="center")
         self.process_tree.column("Arrival", width=80, anchor="center")
         self.process_tree.column("Burst", width=80, anchor="center")
-        self.process_tree.column("Priority", width=80, anchor="center")
+        self.process_tree.column("Priority", width=80, anchor="center")  
 
         self.process_tree.grid(row=0, column=0, sticky="nsew")
         list_scrollbar.config(command=self.process_tree.yview)
+
 
         # Delete Button
         self.delete_button = tk.Button(frame_left, text="Delete Selected Process", command=self.delete_selected_process,
@@ -106,7 +109,7 @@ class CPUSchedulerApp:
         button_frame = tk.LabelFrame(frame_left, text="Controls", padx=10, pady=10)
         button_frame.grid(row=4, column=0, sticky="ew", pady=10, padx=(10, 27))
 
-        # Time Quantum Entry
+        # Time Quantum Entry (Moved here!)
         tk.Label(button_frame, text="Time Quantum:").grid(row=0, column=0, pady=10, sticky="ew")
         self.time_quantum_entry = tk.Entry(button_frame, state=tk.DISABLED)  # Initially Disabled
         self.time_quantum_entry.grid(row=0, column=1, padx=10, pady=5)
@@ -136,13 +139,13 @@ class CPUSchedulerApp:
         # Create the Treeview (Scheduling Table)
         self.schedule_tree = ttk.Treeview(self.schedule_tree_frame, columns=(
             "PID", "Arrival", "Burst", "Priority", "Completion", "Turnaround", "Waiting", "Response"),
-            show="headings", height=6, yscrollcommand=self.tree_scroll_y.set)
+            show="headings", height=6, yscrollcommand=self.tree_scroll_y.set)  
 
         # Define column headings
         columns = ["PID", "Arrival", "Burst", "Priority", "Completion", "Turnaround", "Waiting", "Response"]
         for col in columns:
             self.schedule_tree.heading(col, text=col, anchor="center")
-            self.schedule_tree.column(col, width=137, anchor="center")
+            self.schedule_tree.column(col, width=137, anchor="center") 
 
         # Grid placement
         self.schedule_tree.grid(row=0, column=0, sticky="nsew")
@@ -155,22 +158,21 @@ class CPUSchedulerApp:
         self.schedule_tree_frame.grid(row=0, column=0, sticky="nsew", padx=10, pady=10)
 
         # ---------------- Gantt Chart Frame ----------------
-        self.canvas_frame = tk.Frame(frame_right, height=160, width=520, bg="white", relief="solid")
+        self.canvas_frame = tk.Frame(frame_right, height=160, width=520, bg="white", relief="solid")  
         self.canvas_frame.grid(row=1, column=0, sticky="nsew", padx=10, pady=10)
 
         # ---------------- Statistics Chart Frame ----------------
-        self.stats_frame = tk.Frame(frame_right, height=160, width=500, bg="white", relief="solid")
+        self.stats_frame = tk.Frame(frame_right, height=160, width=500, bg="white", relief="solid")  
         self.stats_frame.grid(row=2, column=0, sticky="nsew", padx=10, pady=(0, 10))
 
         # Ensure right panel layout is balanced
-        frame_right.grid_rowconfigure(1, weight=1)
-        frame_right.grid_rowconfigure(2, weight=1)
+        frame_right.grid_rowconfigure(1, weight=1)  
+        frame_right.grid_rowconfigure(2, weight=1)  
         frame_right.grid_columnconfigure(0, weight=1)
 
 
         # Process Manager Instance
         self.process_manager = ProcessManager(self.process_tree)
-
     # ---------------- Event Handlers ----------------
 
     def open_optimizer(self):
@@ -220,13 +222,14 @@ class CPUSchedulerApp:
         else:
             self.priority_entry.config(state=tk.DISABLED)  # Disable Priority field
 
+
     def get_time_quantum(self):
         """Retrieve time quantum value safely from the input box"""
         try:
             return int(self.time_quantum_entry.get())
         except ValueError:
             return -1  # Return -1 if invalid input
-
+        
     def add_process(self):
         """Add a process to the process list and display it in the table"""
         pid = self.pid_entry.get()
@@ -272,22 +275,24 @@ class CPUSchedulerApp:
             if self.algo_var.get() in ["Priority(Non-Preemptive)", "Priority(Preemptive)"]:
                 self.priority_entry.delete(0, tk.END)
 
-    def delete_selected_process(self):
-            selected_item = self.process_tree.selection()
-            if not selected_item:
-                print("No process selected!")
-                return  
 
-            for item in selected_item:
-                values = self.process_tree.item(item, "values")
-                if values:
-                    pid = values[0]  
-                    try:
-                        self.process_manager.remove_process(int(pid))  
-                        self.process_tree.delete(item)  
-                        print(f"Deleted process {pid}")  
-                    except ValueError:
-                        print(f"Invalid PID {pid}, cannot delete")
+    def delete_selected_process(self):
+        selected_item = self.process_tree.selection()
+        if not selected_item:
+            print("No process selected!")
+            return  
+
+        for item in selected_item:
+            values = self.process_tree.item(item, "values")
+            if values:
+                pid = values[0]  
+                try:
+                    self.process_manager.remove_process(int(pid))  
+                    self.process_tree.delete(item)  
+                    print(f"Deleted process {pid}")  
+                except ValueError:
+                    print(f"Invalid PID {pid}, cannot delete")
+
 
     def run_simulation(self):
         """Run the selected scheduling algorithm and update the UI"""
@@ -391,7 +396,7 @@ class CPUSchedulerApp:
 
         # Plot Stats Chart
         plot_stats_chart(result, self.stats_frame)
-        
+
 
     def reset_all(self):
         self.process_manager.processes.clear()
@@ -399,7 +404,7 @@ class CPUSchedulerApp:
         self.schedule_tree.delete(*self.schedule_tree.get_children())
         for widget in self.canvas_frame.winfo_children() + self.stats_frame.winfo_children():
             widget.destroy()
-            
+
 if __name__ == "__main__":
     root = tk.Tk()
     app = CPUSchedulerApp(root)

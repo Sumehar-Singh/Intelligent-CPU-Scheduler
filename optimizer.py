@@ -239,7 +239,7 @@ class AlgorithmOptimizerWindow:
         else:
             self.status_var.set("No processes to analyze")
             messagebox.showinfo("No Data", "No processes to analyze. Please add processes first.")
-    
+
     def analyze_algorithms(self):
         """Run all algorithms and compare their performance"""
         self.status_var.set("Analyzing algorithms...")
@@ -511,3 +511,11 @@ class AlgorithmOptimizerWindow:
         canvas = FigureCanvasTkAgg(fig, master=self.chart_container)
         canvas.draw()
         canvas.get_tk_widget().pack(fill="both", expand=True)
+
+    def calculate_metrics(self, result_df):
+        """Calculate average metrics from a result dataframe"""
+        return {
+            "avg_turnaround": result_df["Turnaround"].mean(),
+            "avg_waiting": result_df["Waiting"].mean(),
+            "avg_response": result_df["Response"].mean() if "Response" in result_df.columns else result_df["Waiting"].mean()
+        }
