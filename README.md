@@ -142,7 +142,14 @@ python main.py
 - Reset or switch algorithms anytime
 
 ---
+## GUI Preview
 
+![Screenshot 2025-04-15 145907](https://github.com/user-attachments/assets/02a0989c-ec3d-4945-8f5f-2436d4370021)
+![Screenshot 2025-04-15 150107](https://github.com/user-attachments/assets/f6cacc84-79a2-4e93-acb9-5a459b0d1903)
+![Screenshot 2025-04-15 150147](https://github.com/user-attachments/assets/e54ba9fc-76af-4364-a4ab-3c174ae8d0dd)
+
+
+---
 ## 🤝 Contributing
 ### Fork the repository:
 ```bash
