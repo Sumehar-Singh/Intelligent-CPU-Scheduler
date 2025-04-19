@@ -22,10 +22,30 @@ class CPUSchedulerApp:
         self.root.geometry("1250x650")
 
         # ---------------- Main Layout ----------------
-        frame_left = tk.Frame(root, padx=3, pady=12, relief=tk.RIDGE, width=360, height=630)  
-        frame_left.grid(row=0, column=0, sticky="nsw")
-        frame_left.grid_propagate(False)
+        # ---------------- Scrollable Left Panel ----------------
+        left_panel_container = tk.Frame(root)
+        left_panel_container.grid(row=0, column=0, sticky="nsw")
 
+        left_canvas = tk.Canvas(left_panel_container, width=360, height=630, highlightthickness=0)
+        scrollbar = ttk.Scrollbar(left_panel_container, orient="vertical", command=left_canvas.yview)
+        scrollable_frame = tk.Frame(left_canvas, highlightthickness=0, takefocus=0)
+
+        # Configure the canvas
+        left_canvas.configure(yscrollcommand=scrollbar.set)
+        left_canvas.pack(side="left", fill="both", expand=True)
+        scrollbar.pack(side="right", fill="y")
+
+        # Add the scrollable frame to the canvas
+        left_canvas.create_window((0, 0), window=scrollable_frame, anchor="nw")
+
+        # Configure the scrollable frame to update scrollregion
+        scrollable_frame.bind(
+            "<Configure>",
+            lambda e: left_canvas.configure(scrollregion=left_canvas.bbox("all"))
+        )
+
+        # Use scrollable_frame as the new frame_left
+        frame_left = scrollable_frame
         frame_right = tk.Frame(root, padx=20, pady=20, relief=tk.RIDGE)
         frame_right.grid(row=0, column=1, sticky="nsew")
 
@@ -145,7 +165,7 @@ class CPUSchedulerApp:
         columns = ["PID", "Arrival", "Burst", "Priority", "Completion", "Turnaround", "Waiting", "Response"]
         for col in columns:
             self.schedule_tree.heading(col, text=col, anchor="center")
-            self.schedule_tree.column(col, width=137, anchor="center") 
+            self.schedule_tree.column(col, width=135, anchor="center") 
 
         # Grid placement
         self.schedule_tree.grid(row=0, column=0, sticky="nsew")
@@ -409,3 +429,4 @@ if __name__ == "__main__":
     root = tk.Tk()
     app = CPUSchedulerApp(root)
     root.mainloop()
+    
